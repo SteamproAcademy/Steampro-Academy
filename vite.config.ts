@@ -3,12 +3,17 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+// Ensure we're using the correct directory for the build
+const rootDir = process.cwd();
+const clientDir = path.join(rootDir, 'client');
+const distDir = path.join(rootDir, 'dist/client');
+
 export default defineConfig({
+  base: '/',
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
             m.cartographer(),
@@ -18,15 +23,16 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      "@": path.resolve(clientDir, "src"),
+      "@shared": path.resolve(rootDir, "shared"),
+      "@assets": path.resolve(rootDir, "attached_assets"),
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  root: clientDir,
   build: {
-    outDir: path.resolve(process.cwd(), "dist/client"),
+    outDir: distDir,
     emptyOutDir: true,
+    manifest: true,
     rollupOptions: {
       input: {
         main: path.resolve(import.meta.dirname, "client/index.html"),
