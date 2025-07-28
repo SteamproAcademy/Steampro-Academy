@@ -8,18 +8,29 @@ const rootDir = process.cwd();
 const clientDir = path.join(rootDir, 'client');
 const distDir = path.join(rootDir, 'dist/client');
 
+// Only import development plugins in development
+const devPlugins = [];
+
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const { default: runtimeErrorOverlay } = await import('@replit/vite-plugin-runtime-error-modal');
+    devPlugins.push(runtimeErrorOverlay());
+    
+    if (process.env.REPL_ID) {
+      const { cartographer } = await import('@replit/vite-plugin-cartographer');
+      devPlugins.push(cartographer());
+    }
+  } catch (e: unknown) {
+    const error = e as Error;
+    console.warn('Could not load development plugins:', error.message);
+  }
+}
+
 export default defineConfig({
   base: '/',
   plugins: [
     react(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
+    ...devPlugins,
   ],
   resolve: {
     alias: {
