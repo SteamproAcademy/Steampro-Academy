@@ -41,15 +41,13 @@ export default defineConfig({
   },
   root: clientDir,
   build: {
-    outDir: distDir,
-    emptyOutDir: true,
-    manifest: true,
-    rollupOptions: {
-      input: {
-        main: path.resolve(import.meta.dirname, "client/index.html"),
-      },
-    },
+  outDir: distDir,
+  emptyOutDir: true,
+  manifest: true,
+  rollupOptions: {
+    input: "index.html", // ✅ relative to root
   },
+},
   server: {
     fs: {
       strict: true,
