@@ -34,9 +34,10 @@ export default function Module({ params }: ModulePageProps) {
     // Find module across all tracks
     const allModules = [
       ...trainingData.core,
-      ...(trainingData.departmental[user.department] || []),
-      ...trainingData.hr
-    ];
+      ...(trainingData[user.department as keyof typeof trainingData] || []),
+      ...trainingData.hr,
+      ...trainingData.core2
+    ].filter(Boolean);
 
     const foundModule = allModules.find(m => m.id === params.id);
     if (!foundModule) {
@@ -103,7 +104,8 @@ export default function Module({ params }: ModulePageProps) {
     if (trainingData.core.some(m => m.id === params.id)) {
       return { name: 'Core Training', color: 'text-blue-600' };
     }
-    if (trainingData.departmental[user.department]?.some(m => m.id === params.id)) {
+    const departmentModules = trainingData[user.department as keyof typeof trainingData];
+    if (Array.isArray(departmentModules) && departmentModules.some((m: TrainingModule) => m.id === params.id)) {
       return { 
         name: `${user.department.charAt(0).toUpperCase()}${user.department.slice(1)} Training`, 
         color: 'text-orange-600' 
@@ -251,6 +253,8 @@ export default function Module({ params }: ModulePageProps) {
                   videoUrl={module.videoUrl}
                   onVideoComplete={handleVideoComplete}
                   disabled={false}
+                  startTime={module.startTime}
+                  endTime={module.endTime}
                 />
 
                 <div className="flex items-center justify-between text-sm text-gray-600 mt-4">

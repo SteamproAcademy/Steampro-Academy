@@ -1,14 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady?: () => void;
+    YT: any;
+  }
+}
 
 interface VideoPlayerProps {
   videoUrl: string;
   onVideoComplete: () => void;
   disabled?: boolean;
+  startTime?: string; // Format: 'HH:MM:SS' or 'MM:SS' or 'SS'
+  endTime?: string;   // Format: 'HH:MM:SS' or 'MM:SS' or 'SS'
 }
 
-export default function VideoPlayer({ videoUrl, onVideoComplete, disabled = false }: VideoPlayerProps) {
+export default function VideoPlayer({ 
+  videoUrl, 
+  onVideoComplete, 
+  disabled = false, 
+  startTime = '', 
+  endTime = '' 
+}: VideoPlayerProps) {
   const [isVideoCompleted, setIsVideoCompleted] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const playerRef = useRef<any>(null);
   
   // Extract video ID from YouTube URL
   const getVideoId = (url: string) => {
@@ -32,18 +48,73 @@ export default function VideoPlayer({ videoUrl, onVideoComplete, disabled = fals
     onVideoComplete();
   };
 
-  // Auto-complete video after 30 seconds for demo purposes
+  // Convert time string (HH:MM:SS, MM:SS, or SS) to seconds
+  const timeToSeconds = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':').map(Number).reverse();
+    return parts.reduce((total, part, index) => {
+      return total + (part * Math.pow(60, index));
+    }, 0);
+  };
+
+  const startSeconds = startTime ? timeToSeconds(startTime) : 0;
+  const endSeconds = endTime ? timeToSeconds(endTime) : 0;
+  const duration = endSeconds > startSeconds ? endSeconds - startSeconds : 0;
+
+  // Create embed URL with start time
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0&enablejsapi=1&start=${startSeconds}`;
+
+
+
+  // Initialize YouTube API
   useEffect(() => {
-    if (showVideo && !isVideoCompleted && !disabled) {
-      const timer = setTimeout(() => {
-        handleVideoComplete();
-      }, 30000); // 30 seconds
-
-      return () => clearTimeout(timer);
+    // Load YouTube IFrame API script if not already loaded
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
     }
-  }, [showVideo, isVideoCompleted, disabled]);
 
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0&enablejsapi=1`;
+    // Setup player when API is ready
+    window.onYouTubeIframeAPIReady = () => {
+      if (playerRef.current) {
+        playerRef.current = new window.YT.Player('ytplayer', {
+          events: {
+            onReady: (event: any) => {
+              // Start playing from the specified start time
+              if (startSeconds > 0) {
+                event.target.seekTo(startSeconds);
+              }
+            },
+            onStateChange: (event: any) => {
+              // Check if video reached the end time
+              if (event.data === window.YT.PlayerState.PLAYING && endSeconds > 0) {
+                const checkTime = () => {
+                  const currentTime = playerRef.current?.getCurrentTime();
+                  if (currentTime >= endSeconds) {
+                    playerRef.current?.pauseVideo();
+                    if (!isVideoCompleted) {
+                      handleVideoComplete();
+                    }
+                  } else {
+                    requestAnimationFrame(checkTime);
+                  }
+                };
+                checkTime();
+              }
+            }
+          }
+        });
+      }
+    };
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+      }
+    };
+  }, [startSeconds, endSeconds, isVideoCompleted]);
 
   const handleRewatch = () => {
     setShowVideo(false);
@@ -66,7 +137,11 @@ export default function VideoPlayer({ videoUrl, onVideoComplete, disabled = fals
               }`}>
                 {isVideoCompleted ? '✓' : '▶'}
               </div>
-              <p className="text-lg font-semibold">Training Video</p>
+              <p className="text-lg font-semibold">
+                {startTime && endTime 
+                  ? `Video Segment (${startTime} - ${endTime})` 
+                  : 'Training Video'}
+              </p>
               <p className="text-sm opacity-70">
                 {isVideoCompleted ? 'Click to rewatch' : 'Click to start watching'}
               </p>
@@ -81,18 +156,18 @@ export default function VideoPlayer({ videoUrl, onVideoComplete, disabled = fals
       ) : (
         <>
           <iframe
+            id="ytplayer"
             src={embedUrl}
             className="w-full h-full"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             title="Training Video"
+            onLoad={() => {
+              // Player will be initialized by the YouTube API
+            }}
           />
-          {!isVideoCompleted && (
-            <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm">
-              Watch for 30 seconds to continue
-            </div>
-          )}
+
           <div className="absolute bottom-4 left-4 right-4 flex gap-2">
             {!isVideoCompleted && (
               <button

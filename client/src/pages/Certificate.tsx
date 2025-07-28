@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import Navigation from '../components/Navigation';
 import { getCurrentUser } from '../lib/auth';
-import { trainingData } from '../data/trainingData';
+import { trainingData, type TrainingData, type TrainingModule } from '../data/trainingData';
 import { areAllTracksCompleted, getTrackProgress } from '../lib/progress';
 import { Button } from '../components/ui/button';
 
@@ -23,11 +23,18 @@ export default function Certificate() {
       return;
     }
 
-    const coreModules = trainingData.core.map(m => m.id);
-    const departmentalModules = (trainingData.departmental[user.department] || []).map(m => m.id);
+    // Include both core and core2 modules in the completion check
+    // Combine core and core2 modules for completion check
+    const coreModules = [...trainingData.core, ...trainingData.core2].map(m => m.id);
+    
+    // Get department modules directly from the training data
+    const departmentKey = user.department.toLowerCase() as keyof TrainingData;
+    const departmentModules = (trainingData[departmentKey] || []) as TrainingModule[];
+    const departmentModuleIds = departmentModules.map(m => m.id);
+    
     const hrModules = trainingData.hr.map(m => m.id);
 
-    const allCompleted = areAllTracksCompleted(coreModules, departmentalModules, hrModules);
+    const allCompleted = areAllTracksCompleted(coreModules, departmentModuleIds, hrModules);
     
     if (!allCompleted) {
       setLocation('/dashboard');
@@ -46,12 +53,18 @@ export default function Certificate() {
 
   if (!user) return null;
 
-  const coreProgress = getTrackProgress(trainingData.core.map(m => m.id));
-  const departmentalModules = trainingData.departmental[user.department] || [];
-  const departmentalProgress = getTrackProgress(departmentalModules.map(m => m.id));
+  // Calculate progress for each track
+  const coreProgress = getTrackProgress([...trainingData.core, ...trainingData.core2].map(m => m.id));
+  
+  // Get department modules directly from the training data
+  const departmentKey = user.department.toLowerCase() as keyof TrainingData;
+  const departmentModules = (trainingData[departmentKey] || []) as TrainingModule[];
+  const departmentModuleIds = departmentModules.map(m => m.id);
+  
+  const departmentProgress = getTrackProgress(departmentModuleIds);
   const hrProgress = getTrackProgress(trainingData.hr.map(m => m.id));
 
-  const totalModules = coreProgress.total + departmentalProgress.total + hrProgress.total;
+  const totalModules = coreProgress.total + departmentProgress.total + hrProgress.total;
   const totalHours = Math.round(totalModules * 0.7);
   const completionDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -128,16 +141,16 @@ export default function Certificate() {
               
               <div className="grid grid-cols-3 gap-6 my-8">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-steampro-blue">{totalModules}</div>
-                  <div className="text-sm text-gray-600">Modules Completed</div>
+                  <div className="text-2xl font-bold text-steampro-blue">{coreProgress.percentage}%</div>
+                  <div className="text-sm text-gray-600">Core Training</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-steampro-blue">{totalHours}</div>
-                  <div className="text-sm text-gray-600">Hours Studied</div>
+                  <div className="text-2xl font-bold text-steampro-blue">{departmentProgress.percentage}%</div>
+                  <div className="text-sm text-gray-600">Departmental Training</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-steampro-blue">100%</div>
-                  <div className="text-sm text-gray-600">Quiz Average</div>
+                  <div className="text-2xl font-bold text-steampro-blue">{hrProgress.percentage}%</div>
+                  <div className="text-sm text-gray-600">HR Training</div>
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import Navigation from '../components/Navigation';
 import ModuleCard from '../components/ModuleCard';
 import ProgressBar from '../components/ProgressBar';
+import { TrainingData } from '../data/trainingData';
 import { getCurrentUser } from '../lib/auth';
 import { trainingData } from '../data/trainingData';
 import { getTrackProgress, areAllTracksCompleted, isModuleUnlocked } from '../lib/progress';
@@ -19,22 +20,25 @@ export default function Dashboard() {
 
   if (!user) return null;
 
-  const coreModules = trainingData.core;
-  const departmentalModules = trainingData.departmental[user.department] || [];
+  const coreModules = [...trainingData.core, ...trainingData.core2]; // Combine core and core2 modules
+  // Access department modules directly from trainingData
+  const departmentKey = user.department.toLowerCase() as keyof TrainingData;
+  const departmentModules = trainingData[departmentKey] || [];
   const hrModules = trainingData.hr;
 
-  const coreProgress = getTrackProgress(coreModules.map(m => m.id));
-  const departmentalProgress = getTrackProgress(departmentalModules.map(m => m.id));
-  const hrProgress = getTrackProgress(hrModules.map(m => m.id));
+  const coreProgress = getTrackProgress(trainingData.core.map((m: { id: string }) => m.id));
+  const core2Progress = getTrackProgress(trainingData.core2.map((m: { id: string }) => m.id));
+  const departmentProgress = getTrackProgress(departmentModules.map((m: { id: string }) => m.id));
+  const hrProgress = getTrackProgress(hrModules.map((m: { id: string }) => m.id));
 
   const allCompleted = areAllTracksCompleted(
-    coreModules.map(m => m.id),
-    departmentalModules.map(m => m.id),
-    hrModules.map(m => m.id)
+    [...trainingData.core, ...trainingData.core2].map((m: { id: string }) => m.id),
+    departmentModules.map((m: { id: string }) => m.id),
+    hrModules.map((m: { id: string }) => m.id)
   );
 
-  const totalModules = coreModules.length + departmentalModules.length + hrModules.length;
-  const completedModules = coreProgress.completed + departmentalProgress.completed + hrProgress.completed;
+  const totalModules = trainingData.core.length + trainingData.core2.length + departmentModules.length + hrModules.length;
+  const completedModules = coreProgress.completed + core2Progress.completed + departmentProgress.completed + hrProgress.completed;
   const overallProgress = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
 
   // Calculate estimated study hours (rough estimate)
@@ -120,7 +124,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="bg-white p-6 border-l-4 border-steampro-blue">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-steampro-dark">Core Training</h3>
+                <h3 className="text-xl font-semibold text-steampro-dark">Core Training - Part 1</h3>
                 <i className="fas fa-star text-yellow-500 text-xl"></i>
               </div>
               <p className="text-gray-600 text-sm">Essential knowledge for all employees</p>
@@ -137,12 +141,44 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="p-6">
-              {coreModules.map((module) => (
+              {trainingData.core.map((module) => (
                 <ModuleCard
                   key={module.id}
                   module={module}
-                  isUnlocked={isModuleUnlocked(module.id, coreModules.map(m => m.id))}
-                  allModuleIds={coreModules.map(m => m.id)}
+                  isUnlocked={isModuleUnlocked(module.id, trainingData.core.map(m => m.id))}
+                  allModuleIds={trainingData.core.map(m => m.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Core 2 Training Track */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white p-6 border-l-4 border-indigo-600">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-steampro-dark">Core Training - Part 2</h3>
+                <i className="fas fa-star text-yellow-500 text-xl"></i>
+              </div>
+              <p className="text-gray-600 text-sm">Advanced knowledge for all employees</p>
+              <div className="mt-4">
+                <div className="flex justify-between text-sm mb-2 text-gray-700">
+                  <span>Progress</span>
+                  <span>{core2Progress.percentage}%</span>
+                </div>
+                <ProgressBar 
+                  current={core2Progress.completed} 
+                  total={core2Progress.total} 
+                  color="bg-indigo-600" 
+                />
+              </div>
+            </div>
+            <div className="p-6">
+              {trainingData.core2.map((module) => (
+                <ModuleCard
+                  key={module.id}
+                  module={module}
+                  isUnlocked={isModuleUnlocked(module.id, trainingData.core2.map(m => m.id))}
+                  allModuleIds={trainingData.core2.map(m => m.id)}
                 />
               ))}
             </div>
@@ -159,23 +195,23 @@ export default function Dashboard() {
               <div className="mt-4">
                 <div className="flex justify-between text-sm mb-2 text-gray-700">
                   <span>Progress</span>
-                  <span>{departmentalProgress.percentage}%</span>
+                  <span>{departmentProgress.percentage}%</span>
                 </div>
                 <ProgressBar 
-                  current={departmentalProgress.completed} 
-                  total={departmentalProgress.total} 
+                  current={departmentProgress.completed} 
+                  total={departmentProgress.total} 
                   color="bg-orange-500" 
                 />
               </div>
             </div>
             <div className="p-6">
-              {departmentalModules.length > 0 ? (
-                departmentalModules.map((module) => (
+              {departmentModules.length > 0 ? (
+                departmentModules.map((module) => (
                   <ModuleCard
                     key={module.id}
                     module={module}
-                    isUnlocked={isModuleUnlocked(module.id, departmentalModules.map(m => m.id))}
-                    allModuleIds={departmentalModules.map(m => m.id)}
+                    isUnlocked={isModuleUnlocked(module.id, departmentModules.map((m: { id: string }) => m.id))}
+                    allModuleIds={departmentModules.map((m: { id: string }) => m.id)}
                   />
                 ))
               ) : (

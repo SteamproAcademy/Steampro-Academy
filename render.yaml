@@ -1,18 +1,31 @@
 services:
   - type: web
-    name: steampro-training-platform
+    name: skillforge-5
     env: node
-    buildCommand: npm install && npm run build
+    region: singapore  # Choose the closest region to your users
+    buildCommand: |
+      npm install
+      npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
+      - key: SESSION_SECRET
+        generateValue: true
+    plan: free
+    
+    # Database configuration
+    envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: steampro-db
+          name: skillforge-db
           property: connectionString
-    
+
+# Database configuration
 databases:
-  - name: steampro-db
-    databaseName: steampro_training
-    user: steampro_user
+  - name: skillforge-db
+    databaseName: skillforge
+    user: skillforge_user
+    plan: free
