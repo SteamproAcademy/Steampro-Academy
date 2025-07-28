@@ -68,17 +68,36 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
+  // Get the absolute path to the client build directory
+  const clientBuildPath = path.join(process.cwd(), 'dist/client');
+  
+  // Log the path for debugging
+  console.log(`Serving static files from: ${clientBuildPath}`);
+  
   // Serve static files from the client build directory
   app.use(
     "/",
-    express.static(
-      path.resolve(import.meta.dirname, "..", "dist", "client"),
-      { maxAge: "1y", etag: true },
-    ),
+    express.static(clientBuildPath, {
+      maxAge: '1y',
+      etag: true,
+      index: false // Don't serve index.html for directories
+    })
   );
   
-  // Handle SPA routing - serve index.html for all routes
-  app.get("*", (_, res) => {
-    res.sendFile(path.resolve(import.meta.dirname, "..", "dist", "client", "index.html"));
+  // Handle SPA routing - serve index.html for all non-API routes
+  app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api')) return next();
+    
+    const indexPath = path.join(clientBuildPath, 'index.html');
+    
+    // Check if the file exists before trying to send it
+    fs.access(indexPath, fs.constants.F_OK, (err) => {
+      if (err) {
+        console.error(`Cannot find index.html at ${indexPath}`);
+        return res.status(404).send('Not found');
+      }
+      res.sendFile(indexPath);
+    });
   });
 }
